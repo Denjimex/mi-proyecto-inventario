@@ -1,8 +1,7 @@
 "use client";
 import { useState } from "react";
 
-type Employee = {
-  id?: string;
+export type NewEmployee = {
   nombre_completo: string;
   alias: string;
   email: string;
@@ -12,7 +11,8 @@ type Employee = {
 };
 
 type Props = {
-  onAdd: (emp: Employee) => void;
+  // El padre hace la llamada a la API y refresca/actualiza la lista.
+  onAdd: (emp: NewEmployee) => Promise<void>;
 };
 
 export default function AddEmployeeForm({ onAdd }: Props) {
@@ -22,37 +22,51 @@ export default function AddEmployeeForm({ onAdd }: Props) {
   const [telefono, setTelefono] = useState("");
   const [area, setArea] = useState("");
   const [activo, setActivo] = useState(true);
-  const [mensaje, setMensaje] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string>("");
+  const [err, setErr] = useState<string>("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErr("");
+    setMsg("");
 
-    const nuevo = {
-      nombre_completo: nombre,
-      alias,
-      email,
-      telefono,
-      area,
+    const nuevo: NewEmployee = {
+      nombre_completo: nombre.trim(),
+      alias: alias.trim(),
+      email: email.trim(),
+      telefono: telefono.trim(),
+      area: area.trim(),
       activo,
     };
 
-    onAdd(nuevo); // 👈 dispara el callback hacia page.tsx
-    setMensaje("✅ Empleado añadido");
+    if (!nuevo.nombre_completo) {
+      setErr("El nombre es obligatorio.");
+      return;
+    }
 
-    // Resetear campos
-    setNombre("");
-    setAlias("");
-    setEmail("");
-    setTelefono("");
-    setArea("");
-    setActivo(true);
+    try {
+      setLoading(true);
+      await onAdd(nuevo); // 👈 el padre hará la llamada a la API
+      setMsg("✅ Empleado añadido");
+
+      // Reset
+      setNombre("");
+      setAlias("");
+      setEmail("");
+      setTelefono("");
+      setArea("");
+      setActivo(true);
+    } catch (e: any) {
+      setErr(e?.message || "No se pudo guardar el empleado");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="card p-4 space-y-3 max-w-lg mx-auto"
-    >
+    <form onSubmit={handleSubmit} className="card p-4 space-y-3 max-w-lg mx-auto">
       <h2 className="text-xl font-semibold">Añadir Empleado</h2>
 
       <input
@@ -97,10 +111,12 @@ export default function AddEmployeeForm({ onAdd }: Props) {
         Activo
       </label>
 
-      <button type="submit" className="btn w-full">
-        Guardar
+      <button type="submit" className="btn w-full" disabled={loading}>
+        {loading ? "Guardando..." : "Guardar"}
       </button>
-      {mensaje && <p className="text-sm">{mensaje}</p>}
+
+      {err && <p className="text-sm text-red-400">{err}</p>}
+      {msg && <p className="text-sm text-emerald-400">{msg}</p>}
     </form>
   );
 }
