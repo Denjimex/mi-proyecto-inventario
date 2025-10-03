@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const supabase = createClient();
-
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("employees")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }); // si tienes la columna
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ employees: data });
+  return NextResponse.json({ data });
 }
