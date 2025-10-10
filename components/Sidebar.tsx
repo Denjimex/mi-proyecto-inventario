@@ -10,6 +10,11 @@ import {
   Briefcase, Layers, School, LogOut
 } from "lucide-react";
 
+// RBAC helpers
+import { can, normalizeRole, type Role } from "@/lib/supabase/permissions";
+// 🔹 limpia el caché del rol (localStorage)
+import { clearRoleCache } from "@/components/permisions/roleCache";
+
 type Profile = {
   full_name: string | null;
   role: { nombre: string } | null;
@@ -30,10 +35,13 @@ export default function Sidebar() {
   useEffect(() => {
     const supabase = createClient();
 
-    // Si la sesión cambia a null, enviamos a /login
+    // Si la sesión cambia a null, limpiamos cache y redirigimos a /login
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_evt: AuthChangeEvent, session: Session | null) => {
-        if (!session) router.replace("/login");
+        if (!session) {
+          clearRoleCache();       // 🧹 limpia caché de rol
+          router.replace("/login");
+        }
       }
     );
 
@@ -66,12 +74,19 @@ export default function Sidebar() {
   }, [router]);
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-    router.replace("/login");
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      clearRoleCache();         // 🧹 limpia caché de rol al cerrar sesión
+      router.replace("/login");
+    }
   }
 
-  const rol = profile?.role?.nombre ?? "sin rol";
-  const isSuperUser = rol === "superusuario";
+  // rol normalizado + helper can()
+  const role: Role | null = normalizeRole(profile?.role?.nombre);
+  const allow = (perm: string) => can(role, perm);
+
+  const rolLabel = profile?.role?.nombre ?? "sin rol";
 
   return (
     <div className="h-screen w-64 bg-neutral-950 text-neutral-100 flex flex-col">
@@ -92,7 +107,7 @@ export default function Sidebar() {
         ) : (
           <p className="text-sm text-gray-400">
             Hola {profile?.full_name || "usuario"} •{" "}
-            <span className="uppercase">{rol}</span>
+            <span className="uppercase">{rolLabel}</span>
           </p>
         )}
       </div>
@@ -100,65 +115,89 @@ export default function Sidebar() {
       {/* Navegación */}
       <nav className="mt-4 flex-1">
         <ul className="space-y-1 px-2">
-          <li>
-            <Link href="/dashboard"
-              className={`flex items-center p-2 rounded ${isActive("/dashboard")}`}>
-              <LayoutDashboard className="mr-3" />
-              Dashboard
-            </Link>
-          </li>
-
-          <li>
-            <Link href="/productos"
-              className={`flex items-center p-2 rounded ${isActive("/productos")}`}>
-              <Boxes className="mr-3" />
-              Productos
-            </Link>
-          </li>
-
-          <li>
-            <Link href="/movimientos"
-              className={`flex items-center p-2 rounded ${isActive("/movimientos")}`}>
-              <Shuffle className="mr-3" />
-              Movimientos
-            </Link>
-          </li>
-
-          {/* Ejemplo: solo superusuario ve Usuarios y Empleados */}
-          {isSuperUser && (
-            <>
-              <li>
-                <Link href="/usuarios"
-                  className={`flex items-center p-2 rounded ${isActive("/usuarios")}`}>
-                  <Users className="mr-3" />
-                  Usuarios
-                </Link>
-              </li>
-              <li>
-                <Link href="/empleados"
-                  className={`flex items-center p-2 rounded ${isActive("/empleados")}`}>
-                  <Briefcase className="mr-3" />
-                  Empleados
-                </Link>
-              </li>
-            </>
+          {allow("dashboard:view") && (
+            <li>
+              <Link
+                href="/dashboard"
+                className={`flex items-center p-2 rounded ${isActive("/dashboard")}`}
+              >
+                <LayoutDashboard className="mr-3" />
+                Dashboard
+              </Link>
+            </li>
           )}
 
-          <li>
-            <Link href="/categorias"
-              className={`flex items-center p-2 rounded ${isActive("/categorias")}`}>
-              <Layers className="mr-3" />
-              Categorías
-            </Link>
-          </li>
+          {allow("productos:view") && (
+            <li>
+              <Link
+                href="/productos"
+                className={`flex items-center p-2 rounded ${isActive("/productos")}`}
+              >
+                <Boxes className="mr-3" />
+                Productos
+              </Link>
+            </li>
+          )}
 
-          <li>
-            <Link href="/aulas"
-              className={`flex items-center p-2 rounded ${isActive("/aulas")}`}>
-              <School className="mr-3" />
-              Aulas
-            </Link>
-          </li>
+          {allow("movimientos:view") && (
+            <li>
+              <Link
+                href="/movimientos"
+                className={`flex items-center p-2 rounded ${isActive("/movimientos")}`}
+              >
+                <Shuffle className="mr-3" />
+                Movimientos
+              </Link>
+            </li>
+          )}
+
+          {allow("usuarios:view") && (
+            <li>
+              <Link
+                href="/usuarios"
+                className={`flex items-center p-2 rounded ${isActive("/usuarios")}`}
+              >
+                <Users className="mr-3" />
+                Usuarios
+              </Link>
+            </li>
+          )}
+
+          {allow("empleados:view") && (
+            <li>
+              <Link
+                href="/empleados"
+                className={`flex items-center p-2 rounded ${isActive("/empleados")}`}
+              >
+                <Briefcase className="mr-3" />
+                Empleados
+              </Link>
+            </li>
+          )}
+
+          {allow("categorias:view") && (
+            <li>
+              <Link
+                href="/categorias"
+                className={`flex items-center p-2 rounded ${isActive("/categorias")}`}
+              >
+                <Layers className="mr-3" />
+                Categorías
+              </Link>
+            </li>
+          )}
+
+          {allow("aulas:view") && (
+            <li>
+              <Link
+                href="/aulas"
+                className={`flex items-center p-2 rounded ${isActive("/aulas")}`}
+              >
+                <School className="mr-3" />
+                Aulas
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 
@@ -166,7 +205,8 @@ export default function Sidebar() {
       <div className="p-4 border-t border-gray-700">
         <button
           onClick={handleLogout}
-          className="flex items-center w-full p-2 hover:bg-red-600 rounded">
+          className="flex items-center w-full p-2 hover:bg-red-600 rounded"
+        >
           <LogOut className="mr-3" />
           Cerrar sesión
         </button>
