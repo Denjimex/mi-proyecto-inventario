@@ -21,28 +21,36 @@ const MATRIX: Record<Role, string[]> = {
     // Dashboard
     "dashboard:view",
 
-    // Productos / Categorías / Aulas / Empleados / Movimientos
-    "productos:manage", "categorias:manage", "aulas:manage",
-    "empleados:manage", "movimientos:manage",
+    // Módulos principales
+    "productos:manage",
+    "empleados:manage",
+    "movimientos:manage",
+    "ejemplares:manage",           // 👈 NUEVO módulo principal
+
+    // Catálogos (solo lectura)
+    "categorias:read",             // ya no hay página, pero sí API / uso como catálogo
+    "aulas:read",                  // igual, catálogo para asignar ejemplares
 
     // Extras de negocio (si los usas)
     "productos:ajustar", "productos:importar", "productos:exportar",
     "movimientos:aprobar",
 
-    // ⚠️ Sin permisos de usuarios.* (reservado a superusuario)
-    // Nada de "usuarios:view/read/create/update/delete/cambiar-rol"
+    // Ejemplares (acciones específicas opcionales)
+    "ejemplares:asignar",          // p.ej. asignar a aula/empleado
+    "ejemplares:mover",            // mover entre aulas/empleados
+    "ejemplares:retirar",          // retirar/baja técnica
+    "ejemplares:importar",         // altas masivas
   ],
 
   vista: [
-    // Solo auditoría de movimientos (lo que dijiste)
+    // Solo auditoría de movimientos (como dijiste)
     "dashboard:view",
     "movimientos:view",
     "movimientos:read",
-
     // Si luego quieres ver/leer otros módulos, descomenta:
     // "productos:view", "productos:read",
-    // "categorias:view", "categorias:read",
-    // "aulas:view", "aulas:read",
+    // "ejemplares:view", "ejemplares:read",
+    // "categorias:read", "aulas:read",
     // "empleados:view", "empleados:read",
   ],
 };
@@ -89,16 +97,17 @@ export const DEFAULT_HOME: Record<Role, string> = {
 // Mapeos de ruta -> recurso (páginas)
 export function resourceFromPath(pathname: string):
   | "dashboard" | "productos" | "movimientos" | "empleados"
-  | "categorias" | "aulas" | "usuarios" | null {
+  | "categorias" | "aulas" | "usuarios" | "ejemplares" | null {
   const seg = pathname.split("?")[0].split("#")[0].split("/").filter(Boolean)[0] ?? "";
   if (!seg) return "dashboard";
-  if (seg === "dashboard") return "dashboard";
-  if (seg === "productos") return "productos";
+  if (seg === "dashboard")   return "dashboard";
+  if (seg === "productos")   return "productos";
   if (seg === "movimientos") return "movimientos";
-  if (seg === "empleados") return "empleados";
-  if (seg === "categorias") return "categorias";
-  if (seg === "aulas") return "aulas";
-  if (seg === "usuarios") return "usuarios";
+  if (seg === "empleados")   return "empleados";
+  if (seg === "categorias")  return "categorias";
+  if (seg === "aulas")       return "aulas";
+  if (seg === "usuarios")    return "usuarios";
+  if (seg === "ejemplares")  return "ejemplares"; // 👈 NUEVO
   return null;
 }
 
@@ -109,13 +118,14 @@ export function apiResourceFromPath(pathname: string): string | null {
   const seg = parts[1];
   if (!seg) return null;
 
-  if (seg === "employees")    return "empleados";
-  if (seg === "items" || seg === "productos") return "productos";
-  if (seg === "categorias")   return "categorias";
-  if (seg === "aulas")        return "aulas";
-  if (seg === "movimientos")  return "movimientos";
-  if (seg === "users" || seg === "usuarios") return "usuarios";
-  if (seg === "roles")        return "usuarios";  // ← protegido igual que usuarios
+  if (seg === "employees")                     return "empleados";
+  if (seg === "items" || seg === "productos")  return "productos";
+  if (seg === "categorias")                    return "categorias";
+  if (seg === "aulas")                         return "aulas";
+  if (seg === "movimientos")                   return "movimientos";
+  if (seg === "users" || seg === "usuarios")   return "usuarios";
+  if (seg === "roles")                         return "usuarios";  // protegido = usuarios
+  if (seg === "ejemplares")                    return "ejemplares"; // 👈 NUEVO
 
   return null;
 }
