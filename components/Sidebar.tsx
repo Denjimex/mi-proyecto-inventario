@@ -175,26 +175,16 @@ export default function Sidebar() {
             </li>
           )}
 
-          {allow("categorias:view") && (
-            <li>
-              <Link
-                href="/categorias"
-                className={`flex items-center p-2 rounded ${isActive("/categorias")}`}
-              >
-                <Layers className="mr-3" />
-                Categorías
-              </Link>
-            </li>
-          )}
+          
 
-          {allow("aulas:view") && (
+          {allow("ejemplares:view") && (
             <li>
               <Link
-                href="/aulas"
-                className={`flex items-center p-2 rounded ${isActive("/aulas")}`}
+                href="/ejemplares"
+                className={`flex items-center p-2 rounded ${isActive("/ejemplares")}`}
               >
                 <School className="mr-3" />
-                Aulas
+                Ejemplares
               </Link>
             </li>
           )}
