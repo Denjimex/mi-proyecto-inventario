@@ -27,9 +27,13 @@ export type EjemplarRow = {
 // Nuevo tipo para agrupar ejemplares (usado en la tabla principal)
 export type Group = {
   producto_id: string;
-  producto: string;
   aula_id: number | null;
-  aula: string | null;
+  producto: string;
+  aula: string;
   cantidad: number;
   danados: number;
+  // NUEVO:
+  empleado_id?: string | null;
+  empleado_label?: string | null;
 };
+
