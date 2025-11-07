@@ -14,9 +14,22 @@ export async function GET(req: Request) {
   const supabase = await createClient();
 
   let q = supabase
-    .from("ejemplares")
-    .select("id,num_inventario,serie,estado_fisico,estatus")
-    .eq("producto_id", producto_id);
+  .from("ejemplares")
+  .select(`
+    id,
+    num_inventario,
+    serie,
+    estado_fisico,
+    estatus,
+    descripcion,
+    empleado:employees (
+      id,
+      alias,
+      nombre_completo
+    )
+  `)
+  .eq("producto_id", producto_id);
+
 
   if (aula_id === null) {
     q = q.is("aula_id", null);
