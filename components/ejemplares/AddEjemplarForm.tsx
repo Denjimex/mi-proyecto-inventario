@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import Guard from "@/components/Guard";
 import type { Aula, ProductoLite, EjemplarRow, EmpleadoLite } from "./types";
 
-// Helper para evitar reventar si el server responde HTML (404/redirect)
 async function safeJson(res: Response, name: string) {
   if (!res.ok) {
     const text = await res.text();
@@ -20,14 +19,14 @@ type Props = {
   empleados: EmpleadoLite[];
   onCreated: () => Promise<void> | void;
 
-  // Edición por EJEMPLAR (modo existente)
   editing?: EjemplarRow | null;
   onCancelEdit?: () => void;
 
-  // NUEVO: precarga suave (para "editar grupo" sin entrar a editing)
+  /** Precarga suave para “editar grupo” */
   defaults?: {
     producto_id?: string;
     aula_id?: number | null;
+    empleado_id?: string | null; // NUEVO
     estado_fisico?: "bueno" | "regular" | "malo" | "inutilizable";
     estatus?: "activo" | "inactivo" | "retirado";
     serie?: string;
@@ -35,8 +34,9 @@ type Props = {
     cantidad?: number;
   };
 
-  // NUEVO: bloquear selects de producto/aula (p.ej. en panel de grupo)
+  /** Bloquear selects (sidebar) */
   lockProductoAula?: boolean;
+  lockEmpleado?: boolean; // NUEVO
 };
 
 export default function AddEjemplarForm({
@@ -48,22 +48,20 @@ export default function AddEjemplarForm({
   onCancelEdit,
   defaults,
   lockProductoAula = false,
+  lockEmpleado = false, // NUEVO
 }: Props) {
   const [cantidad, setCantidad] = useState<number>(1);
   const [empleadoId, setEmpleadoId] = useState<string>("");
   const [productoId, setProductoId] = useState<string>("");
-  const [numInv, setNumInv] = useState<string>(""); // A1, B2, C3 ...
+  const [numInv, setNumInv] = useState<string>("");
   const [serie, setSerie] = useState<string>("");
   const [estadoFisico, setEstadoFisico] =
     useState<"bueno" | "regular" | "malo" | "inutilizable">("bueno");
-  const [estatus, setEstatus] =
-    useState<"activo" | "inactivo" | "retirado">("activo");
+  const [estatus, setEstatus] = useState<"activo" | "inactivo" | "retirado">("activo");
   const [descripcion, setDescripcion] = useState<string>("");
   const [aulaId, setAulaId] = useState<number | "">("");
 
-  // ---------------------------
-  // Prefill para EDITAR (ejemplar)
-  // ---------------------------
+  // Prefill edición 1-a-1 (tu modo antiguo)
   useEffect(() => {
     if (!editing) return;
     setCantidad(editing.cantidad ?? 1);
@@ -77,23 +75,21 @@ export default function AddEjemplarForm({
     setAulaId(editing.aula?.id ?? "");
   }, [editing]);
 
-  // ---------------------------
-  // Prefill para DEFAULTS (grupo) — solo si NO hay editing activo
-  // ---------------------------
+  // Precarga para “grupo” (sidebar)
   useEffect(() => {
-    if (editing) return; // no pisar edición
+    if (editing) return;
     if (!defaults) return;
 
     if (defaults.cantidad !== undefined) setCantidad(defaults.cantidad);
     if (defaults.producto_id !== undefined) setProductoId(defaults.producto_id);
-    if (defaults.aula_id !== undefined) {
-      setAulaId(defaults.aula_id === null ? "" : Number(defaults.aula_id));
-    }
+    if (defaults.aula_id !== undefined)
+      setAulaId(defaults.aula_id === null ? "" : defaults.aula_id);
+    if (defaults.empleado_id !== undefined && defaults.empleado_id !== null)
+      setEmpleadoId(defaults.empleado_id); // NUEVO
     if (defaults.estado_fisico) setEstadoFisico(defaults.estado_fisico);
     if (defaults.estatus) setEstatus(defaults.estatus);
     if (defaults.serie !== undefined) setSerie(defaults.serie);
     if (defaults.descripcion !== undefined) setDescripcion(defaults.descripcion);
-    // numInv NO se precarga en modo grupo (siempre lo pega el usuario)
   }, [defaults, editing]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -103,7 +99,7 @@ export default function AddEjemplarForm({
       cantidad: Number.isFinite(cantidad) ? cantidad : 1,
       empleado_id: empleadoId || null,
       producto_id: productoId || null,
-      numeros: numInv || "",                 // <- la API espera 'numeros' para crear varios
+      numeros: numInv || "",
       serie: serie || null,
       estado_fisico: estadoFisico,
       estatus,
@@ -111,7 +107,6 @@ export default function AddEjemplarForm({
       aula_id: aulaId === "" ? null : Number(aulaId),
     };
 
-    // Crear (list/add) o actualizar 1 ejemplar (update)
     const url = editing ? "/api/ejemplares/update" : "/api/ejemplares/list/add";
     const method = editing ? "PUT" : "POST";
     const body = editing ? { id: editing.id, ...payloadBase } : payloadBase;
@@ -125,7 +120,7 @@ export default function AddEjemplarForm({
     const json = await safeJson(res, editing ? "Actualizar ejemplar" : "Crear ejemplares");
     if (!res.ok) return alert(json.error || "Error");
 
-    // limpiar (comportamiento actual)
+    // reset
     setCantidad(1);
     setEmpleadoId("");
     setProductoId("");
@@ -142,10 +137,9 @@ export default function AddEjemplarForm({
 
   return (
     <Guard perm="ejemplares:create" mode="disable">
-      <form
-        onSubmit={handleSubmit}
-        className="max-w-4xl bg-neutral-900 p-4 rounded-lg grid md:grid-cols-2 gap-3"
-      >
+      <form onSubmit={handleSubmit}
+        className="max-w-4xl bg-neutral-900 p-4 rounded-lg grid md:grid-cols-2 gap-3">
+
         {/* Producto */}
         <select
           className="rounded p-2 bg-neutral-800"
@@ -164,19 +158,18 @@ export default function AddEjemplarForm({
 
         {/* Cantidad */}
         <input
-          type="number"
-          min={1}
+          type="number" min={1}
           className="rounded p-2 bg-neutral-800"
           placeholder="Cantidad"
           value={cantidad}
           onChange={(e) => setCantidad(Number(e.target.value) || 1)}
         />
 
-        {/* Núm. inventario (lista separada por comas) */}
+        {/* Núm. inventario */}
         <textarea
           className="rounded p-2 bg-neutral-800 md:col-span-1"
           rows={6}
-          placeholder="Núm. inventario (separados por comas: A1, B2, C3...)"
+          placeholder="Núm. inventario (A1, B2, C3...)"
           value={numInv}
           onChange={(e) => setNumInv(e.target.value)}
         />
@@ -201,17 +194,16 @@ export default function AddEjemplarForm({
           <option value="inutilizable">Inutilizable</option>
         </select>
 
-        {/* Empleado */}
+        {/* Empleado (fijo si lockEmpleado) */}
         <select
           className="rounded p-2 bg-neutral-800"
           value={empleadoId}
           onChange={(e) => setEmpleadoId(e.target.value)}
+          disabled={lockEmpleado}
         >
           <option value="">— Empleado (opcional) —</option>
           {empleados.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.nombre}
-            </option>
+            <option key={emp.id} value={emp.id}>{emp.nombre}</option>
           ))}
         </select>
 
@@ -230,16 +222,12 @@ export default function AddEjemplarForm({
         <select
           className="rounded p-2 bg-neutral-800"
           value={aulaId}
-          onChange={(e) =>
-            setAulaId(e.target.value === "" ? "" : Number(e.target.value))
-          }
+          onChange={(e) => setAulaId(e.target.value === "" ? "" : Number(e.target.value))}
           disabled={lockProductoAula || !!editing}
         >
           <option value="">— Aula (opcional) —</option>
           {aulas.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.nombre}
-            </option>
+            <option key={a.id} value={a.id}>{a.nombre}</option>
           ))}
         </select>
 
@@ -257,11 +245,8 @@ export default function AddEjemplarForm({
             {editing ? "Guardar cambios" : "Guardar"}
           </button>
           {editing && (
-            <button
-              type="button"
-              onClick={onCancelEdit}
-              className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600"
-            >
+            <button type="button" onClick={onCancelEdit}
+              className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600">
               Cancelar
             </button>
           )}
