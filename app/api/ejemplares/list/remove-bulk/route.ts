@@ -1,6 +1,7 @@
 // app/api/ejemplares/list/remove-bulk/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeInv } from "@/utils/normalize";
 
 type Body = {
   producto_id: string;
@@ -20,52 +21,47 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Faltan números" }, { status: 400 });
     }
 
-    // Acepta comas, saltos de línea, tabs, punto y coma o barra vertical como separadores
-    const lista = Array.from(
-      new Set(
-        numeros
-          .split(/[,\n;\t| ]+/)
-          .map(s => s.trim())
-          .filter(Boolean)
-      )
-    );
+    // 1) Parseo flexible + lista original (para reportar notFound con lo que pegó el usuario)
+    const rawList = numeros
+      .split(/[,\n;\t| ]+/) // comas, saltos de línea, tabs, ;, |, espacios
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-    if (lista.length === 0) {
+    if (rawList.length === 0) {
       return NextResponse.json({ error: "No hay números válidos" }, { status: 400 });
     }
 
-    // Construye la query correctamente según aula_id
-    let query = supabase
+    // 2) Normalización consistente con la BD
+    const normList = rawList.map((t) => normalizeInv(t));
+    const uniqueNorm = Array.from(new Set(normList));
+
+    // 3) Buscar por grupo (producto+aula) y por num_inventario_norm
+    let sel = supabase
       .from("ejemplares")
-      .select("id, num_inventario")
+      .select("id, num_inventario_norm")
       .eq("producto_id", producto_id)
-      .in("num_inventario", lista);
+      .in("num_inventario_norm", uniqueNorm);
 
-    if (aula_id === null) {
-      query = query.is("aula_id", null);
-    } else if (typeof aula_id === "number") {
-      query = query.eq("aula_id", aula_id);
-    } // si viene undefined, no filtramos por aula
+    if (aula_id === null) sel = sel.is("aula_id", null);
+    else if (typeof aula_id === "number") sel = sel.eq("aula_id", aula_id);
+    // si aula_id === undefined, no filtramos por aula
 
-    const { data: existentes, error: qErr } = await query;
+    const { data: existentes, error: qErr } = await sel;
     if (qErr) {
       return NextResponse.json({ error: qErr.message }, { status: 400 });
     }
 
-    const existeSet = new Set((existentes ?? []).map(r => r.num_inventario));
-    const notFound = lista.filter(n => !existeSet.has(n));
-    const ids = (existentes ?? []).map(r => r.id);
+    // 4) Calcular notFound comparando por normalizado pero devolviendo los tokens originales
+    const foundNorm = new Set((existentes ?? []).map((r) => r.num_inventario_norm as string));
+    const notFound = rawList.filter((raw, i) => !foundNorm.has(normList[i]));
 
+    const ids = (existentes ?? []).map((r) => r.id);
     if (ids.length === 0) {
-      // Nada que borrar, pero respondemos 200 con los no encontrados
       return NextResponse.json({ removidos: 0, notFound });
     }
 
-    const { error: delErr } = await supabase
-      .from("ejemplares")
-      .delete()
-      .in("id", ids);
-
+    // 5) Borrado por IDs (seguro)
+    const { error: delErr } = await supabase.from("ejemplares").delete().in("id", ids);
     if (delErr) {
       return NextResponse.json({ error: delErr.message }, { status: 400 });
     }
