@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AddItemForm from "@/components/productos/AddItemForm";
 import ItemsTable from "@/components/productos/ItemsTable";
 import type { Category, ItemRow } from "@/components/productos/types";
+import ToggleSection from "@/components/ToggleSection";
 
 export default function ProductosPage() {
   const [cats, setCats] = useState<Category[]>([]);
@@ -23,7 +24,11 @@ export default function ProductosPage() {
 
   useEffect(() => {
     (async () => {
-      try { await refresh(); } finally { setLoading(false); }
+      try {
+        await refresh();
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -40,7 +45,7 @@ export default function ProductosPage() {
   }
 
   function handleEdit(row: ItemRow) {
-    setEditing(row);
+    setEditing(row); // esto hará que el formulario se abra gracias a forceOpen
   }
 
   async function afterCreate() {
@@ -52,21 +57,34 @@ export default function ProductosPage() {
     await refresh();
   }
 
-  if (loading) return <div className="p-6 text-sm text-gray-400">Cargando…</div>;
+  if (loading) {
+    return <div className="p-6 text-sm text-gray-400">Cargando…</div>;
+  }
 
   return (
     <div className="p-6 flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Productos</h1>
 
-      <AddItemForm
-        categories={cats}
-        editing={editing}
-        onCreated={afterCreate}
-        onUpdated={afterUpdate}
-        onCancelEdit={() => setEditing(null)}
-      />
+      <ToggleSection
+        title={editing ? "Editar producto" : "Añadir producto"}
+        forceOpen={!!editing}
+      >
+        <AddItemForm
+          categories={cats}
+          editing={editing}
+          onCreated={afterCreate}
+          onUpdated={afterUpdate}
+          onCancelEdit={() => setEditing(null)}
+        />
+      </ToggleSection>
 
-      <ItemsTable items={items} onEdit={handleEdit} onDelete={handleDelete} />
+      <div className="card p-4">
+        <ItemsTable
+          items={items}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
+      </div>
     </div>
   );
 }
