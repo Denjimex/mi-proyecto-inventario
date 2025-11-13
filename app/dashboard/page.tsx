@@ -41,16 +41,26 @@ export default async function DashboardPage() {
   const isAdmin = roleName === "admin" || roleName === "superusuario";
 
   // 3) Datos para UI
-  const [{ data: aulas }, { data: items }, { data: existencias }] =
-    await Promise.all([
-      supabase.from("aulas").select("id, nombre").order("id"),
-      supabase
-        .from("items")
-        .select("id, producto, modelo, serie, estado, created_at"),
-      supabase
-        .from("existencias")
-        .select("id, item_id, aula_id, cantidad"),
-    ]);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIso = today.toISOString();
+
+  const [
+    { data: aulas },
+    { data: items },
+    { data: existencias },
+    { count: movimientosHoy },
+  ] = await Promise.all([
+    supabase.from("aulas").select("id, nombre").order("id"),
+    supabase
+      .from("items")
+      .select("id, producto, modelo, serie, estado, created_at"),
+    supabase.from("existencias").select("id, item_id, aula_id, cantidad"),
+    supabase
+      .from("movimientos")
+      .select("id", { count: "exact", head: true })
+      .gte("fecha_movimiento", todayIso),
+  ]);
 
   return (
     <main className="p-6 space-y-6">
@@ -65,14 +75,13 @@ export default async function DashboardPage() {
         </div>
         <div className="card p-4">
           <p className="text-sm text-neutral-400">Movimientos (hoy)</p>
-          <p className="text-3xl font-semibold">—</p>
+          <p className="text-3xl font-semibold">{movimientosHoy ?? 0}</p>
         </div>
       </div>
 
       {isAdmin && (
         <div className="card p-4">
           <h3 className="text-lg font-semibold mb-3">Añadir producto</h3>
-          {/* Opción 2: el form se autogestiona, sin props */}
           <AddProductForm />
         </div>
       )}
