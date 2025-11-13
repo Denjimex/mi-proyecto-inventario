@@ -1,8 +1,10 @@
+// app/empleados/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import AddEmployeeForm from "@/components/AddEmployeeForm";
 import EmployeesTable from "@/components/EmployeesTable";
+import ToggleSection from "@/components/ToggleSection";
 
 import {
   EmployeeDB,
@@ -40,9 +42,11 @@ export default function EmpleadosPage() {
       return;
     }
 
-    // si tu endpoint devuelve el registro creado:
-    const { data } = await res.json(); // puede ser EmployeeDB o EmployeeDB[]
-    const created = Array.isArray(data) ? data.map(normalizeEmployee) : [normalizeEmployee(data)];
+    const { data } = await res.json(); // EmployeeDB o EmployeeDB[]
+    const created = Array.isArray(data)
+      ? data.map(normalizeEmployee)
+      : [normalizeEmployee(data)];
+
     setRows((r) => [...r, ...created]);
   }
 
@@ -81,13 +85,22 @@ export default function EmpleadosPage() {
   if (loading) return <main className="p-10">Cargando…</main>;
 
   return (
-    <main className="p-6 space-y-6">
-      <AddEmployeeForm onAdd={handleAdd} />
-      <EmployeesTable
-        empleados={rows}
-        onDelete={handleDelete}
-        onUpdate={handleUpdate}   // <- firma (emp: EmployeeUI) => void|Promise<void>
-      />
+    <main className="p-6 flex flex-col gap-6">
+      <h1 className="text-xl font-semibold">Empleados</h1>
+
+      {/* Formulario colapsable */}
+      <ToggleSection title="Añadir empleado" defaultOpen={false}>
+        <AddEmployeeForm onAdd={handleAdd} />
+      </ToggleSection>
+
+      {/* Tabla */}
+      <div className="card p-4">
+        <EmployeesTable
+          empleados={rows}
+          onDelete={handleDelete}
+          onUpdate={handleUpdate}
+        />
+      </div>
     </main>
   );
 }
