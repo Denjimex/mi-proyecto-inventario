@@ -25,7 +25,12 @@ export async function GET() {
     .from("dashboard_general")
     .select("*");
 
-  return NextResponse.json({
+  // 3) ejemplares para PDFs detallados
+const { data: ejemplares } = await supabase
+  .from("dashboard_ejemplares_por_aula")
+  .select("*");
+
+return NextResponse.json({
   cards: {
     totalProductos: totalProd?.length ?? 0,
     totalAulas: totalAulas?.length ?? 0,
@@ -33,6 +38,7 @@ export async function GET() {
   },
   porAula: porAula ?? [],
   general: general ?? [],
+  ejemplares: ejemplares ?? [], // 👈 NUEVO
 });
 
 }
