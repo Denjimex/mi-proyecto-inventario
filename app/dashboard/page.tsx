@@ -40,7 +40,7 @@ export default async function DashboardPage() {
 
   const isAdmin = roleName === "admin" || roleName === "superusuario";
 
-  // 3) Datos para UI
+  // 3) Datos para UI (cards + tablas)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString();
@@ -48,14 +48,16 @@ export default async function DashboardPage() {
   const [
     { data: aulas },
     { data: items },
-    { data: existencias },
+    { data: ejemplares },
     { count: movimientosHoy },
   ] = await Promise.all([
     supabase.from("aulas").select("id, nombre").order("id"),
     supabase
       .from("items")
       .select("id, producto, modelo, serie, estado, created_at"),
-    supabase.from("existencias").select("id, item_id, aula_id, cantidad"),
+    supabase
+      .from("dashboard_ejemplares_por_aula")
+      .select("aula_id, aula, numeroinventario, producto, modelo, serie, estado"),
     supabase
       .from("movimientos")
       .select("id", { count: "exact", head: true })
@@ -89,8 +91,7 @@ export default async function DashboardPage() {
       <div className="card p-4">
         <InventoryTable
           aulas={aulas || []}
-          items={items || []}
-          existencias={existencias || []}
+          ejemplares={ejemplares || []}
           isAdmin={isAdmin}
         />
       </div>
