@@ -8,7 +8,12 @@ import type { Aula, ProductoLite, EjemplarRow, EmpleadoLite } from "./types";
 async function safeJson(res: Response, name: string) {
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`${name} failed: ${res.status} ${res.statusText} :: ${text.slice(0,180)}`);
+    throw new Error(
+      `${name} failed: ${res.status} ${res.statusText} :: ${text.slice(
+        0,
+        180
+      )}`
+    );
   }
   return res.json();
 }
@@ -26,9 +31,9 @@ type Props = {
   defaults?: {
     producto_id?: string;
     aula_id?: number | null;
-    empleado_id?: string | null; // NUEVO
+    empleado_id?: string | null;
     estado_fisico?: "bueno" | "regular" | "malo" | "inutilizable";
-    estatus?: "activo" | "inactivo" | "retirado";
+    // estatus?: "activo" | "inactivo" | "retirado" | "baja"; // ya no se usa en el UI
     serie?: string;
     descripcion?: string;
     cantidad?: number;
@@ -36,7 +41,7 @@ type Props = {
 
   /** Bloquear selects (sidebar) */
   lockProductoAula?: boolean;
-  lockEmpleado?: boolean; // NUEVO
+  lockEmpleado?: boolean;
 };
 
 export default function AddEjemplarForm({
@@ -48,7 +53,7 @@ export default function AddEjemplarForm({
   onCancelEdit,
   defaults,
   lockProductoAula = false,
-  lockEmpleado = false, // NUEVO
+  lockEmpleado = false,
 }: Props) {
   const [cantidad, setCantidad] = useState<number>(1);
   const [empleadoId, setEmpleadoId] = useState<string>("");
@@ -57,11 +62,10 @@ export default function AddEjemplarForm({
   const [serie, setSerie] = useState<string>("");
   const [estadoFisico, setEstadoFisico] =
     useState<"bueno" | "regular" | "malo" | "inutilizable">("bueno");
-  const [estatus, setEstatus] = useState<"activo" | "inactivo" | "retirado">("activo");
   const [descripcion, setDescripcion] = useState<string>("");
   const [aulaId, setAulaId] = useState<number | "">("");
 
-  // Prefill edición 1-a-1 (tu modo antiguo)
+  // Prefill edición 1-a-1 (modo antiguo)
   useEffect(() => {
     if (!editing) return;
     setCantidad(editing.cantidad ?? 1);
@@ -70,7 +74,6 @@ export default function AddEjemplarForm({
     setNumInv(editing.num_inventario ?? "");
     setSerie(editing.serie ?? "");
     setEstadoFisico(editing.estado_fisico);
-    setEstatus(editing.estatus);
     setDescripcion(editing.descripcion ?? "");
     setAulaId(editing.aula?.id ?? "");
   }, [editing]);
@@ -85,15 +88,20 @@ export default function AddEjemplarForm({
     if (defaults.aula_id !== undefined)
       setAulaId(defaults.aula_id === null ? "" : defaults.aula_id);
     if (defaults.empleado_id !== undefined && defaults.empleado_id !== null)
-      setEmpleadoId(defaults.empleado_id); // NUEVO
+      setEmpleadoId(defaults.empleado_id);
     if (defaults.estado_fisico) setEstadoFisico(defaults.estado_fisico);
-    if (defaults.estatus) setEstatus(defaults.estatus);
     if (defaults.serie !== undefined) setSerie(defaults.serie);
-    if (defaults.descripcion !== undefined) setDescripcion(defaults.descripcion);
+    if (defaults.descripcion !== undefined)
+      setDescripcion(defaults.descripcion);
   }, [defaults, editing]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // estatus: en creación siempre "activo";
+    // en edición respetamos el que ya tiene el ejemplar.
+    const estatusFinal: "activo" | "inactivo" | "retirado" | "baja" =
+      editing?.estatus ?? "activo";
 
     const payloadBase = {
       cantidad: Number.isFinite(cantidad) ? cantidad : 1,
@@ -102,7 +110,7 @@ export default function AddEjemplarForm({
       numeros: numInv || "",
       serie: serie || null,
       estado_fisico: estadoFisico,
-      estatus,
+      estatus: estatusFinal,
       descripcion: descripcion || null,
       aula_id: aulaId === "" ? null : Number(aulaId),
     };
@@ -117,7 +125,10 @@ export default function AddEjemplarForm({
       credentials: "include",
       body: JSON.stringify(body),
     });
-    const json = await safeJson(res, editing ? "Actualizar ejemplar" : "Crear ejemplares");
+    const json = await safeJson(
+      res,
+      editing ? "Actualizar ejemplar" : "Crear ejemplares"
+    );
     if (!res.ok) return alert(json.error || "Error");
 
     // reset
@@ -127,7 +138,6 @@ export default function AddEjemplarForm({
     setNumInv("");
     setSerie("");
     setEstadoFisico("bueno");
-    setEstatus("activo");
     setDescripcion("");
     setAulaId("");
 
@@ -137,9 +147,10 @@ export default function AddEjemplarForm({
 
   return (
     <Guard perm="ejemplares:create" mode="disable">
-      <form onSubmit={handleSubmit}
-        className="max-w-4xl bg-neutral-900 p-4 rounded-lg grid md:grid-cols-2 gap-3">
-
+      <form
+        onSubmit={handleSubmit}
+        className="max-w-4xl bg-neutral-900 p-4 rounded-lg grid md:grid-cols-2 gap-3"
+      >
         {/* Producto */}
         <select
           className="rounded p-2 bg-neutral-800"
@@ -151,14 +162,16 @@ export default function AddEjemplarForm({
           <option value="">— Selecciona producto —</option>
           {productos.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.producto}{p.modelo ? ` · ${p.modelo}` : ""}
+              {p.producto}
+              {p.modelo ? ` · ${p.modelo}` : ""}
             </option>
           ))}
         </select>
 
         {/* Cantidad */}
         <input
-          type="number" min={1}
+          type="number"
+          min={1}
           className="rounded p-2 bg-neutral-800"
           placeholder="Cantidad"
           value={cantidad}
@@ -203,31 +216,28 @@ export default function AddEjemplarForm({
         >
           <option value="">— Empleado (opcional) —</option>
           {empleados.map((emp) => (
-            <option key={emp.id} value={emp.id}>{emp.nombre}</option>
+            <option key={emp.id} value={emp.id}>
+              {emp.nombre}
+            </option>
           ))}
-        </select>
-
-        {/* Estatus */}
-        <select
-          className="rounded p-2 bg-neutral-800"
-          value={estatus}
-          onChange={(e) => setEstatus(e.target.value as any)}
-        >
-          <option value="activo">Activo</option>
-          <option value="inactivo">Inactivo</option>
-          <option value="retirado">Retirado</option>
         </select>
 
         {/* Aula */}
         <select
           className="rounded p-2 bg-neutral-800"
           value={aulaId}
-          onChange={(e) => setAulaId(e.target.value === "" ? "" : Number(e.target.value))}
+          onChange={(e) =>
+            setAulaId(
+              e.target.value === "" ? "" : Number(e.target.value)
+            )
+          }
           disabled={lockProductoAula || !!editing}
         >
           <option value="">— Aula (opcional) —</option>
           {aulas.map((a) => (
-            <option key={a.id} value={a.id}>{a.nombre}</option>
+            <option key={a.id} value={a.id}>
+              {a.nombre}
+            </option>
           ))}
         </select>
 
@@ -245,8 +255,11 @@ export default function AddEjemplarForm({
             {editing ? "Guardar cambios" : "Guardar"}
           </button>
           {editing && (
-            <button type="button" onClick={onCancelEdit}
-              className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600">
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="px-4 py-2 rounded bg-neutral-700 hover:bg-neutral-600"
+            >
               Cancelar
             </button>
           )}
