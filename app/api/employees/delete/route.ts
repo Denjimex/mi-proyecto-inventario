@@ -1,15 +1,22 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
-  const supabase = createClient();
-  const { id } = await req.json();
+  const body = await req.json();
+  const { id } = body;
 
-  const { error } = await supabase.from("employees").delete().eq("id", id);
+  if (!id) {
+    return NextResponse.json({ error: "Falta id" }, { status: 400 });
+  }
+
+  const { error } = await supabaseAdmin
+    .from("employees")
+    .delete()
+    .eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ ok: true });
 }

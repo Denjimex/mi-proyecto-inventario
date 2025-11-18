@@ -1,34 +1,33 @@
+// components/EmployeesTable.tsx
 "use client";
-import { useState } from "react";
 
-type Employee = {
-  id: string;
-  nombre_completo: string;
-  alias: string;
-  email: string;
-  telefono: string;
-  area: string;
-  activo: boolean;
-};
+import { useState } from "react";
+import type { EmployeeUI } from "@/app/types/employee";
 
 type Props = {
-  empleados: Employee[];
-  onDelete: (id: string) => void;
-  onUpdate: (emp: Employee) => void;
+  empleados: EmployeeUI[];
+  onDelete: (id: string) => void | Promise<void>;
+  onUpdate: (emp: EmployeeUI) => void | Promise<void>; // acepta sync o async
 };
 
 export default function EmployeesTable({ empleados, onDelete, onUpdate }: Props) {
-  const [selected, setSelected] = useState<Employee | null>(null);
+  const [selected, setSelected] = useState<EmployeeUI | null>(null);
 
-  const handleSave = () => {
+  const openEdit = (e: EmployeeUI) => {
+    // hacemos copia por si el padre guarda la ref
+    setSelected({ ...e });
+  };
+
+  const handleSave = async () => {
     if (!selected) return;
-    onUpdate(selected);
+    await onUpdate(selected);
     setSelected(null);
   };
 
   return (
     <div className="card p-4">
       <h2 className="text-lg font-semibold mb-3">Empleados</h2>
+
       <table className="table w-full">
         <thead>
           <tr>
@@ -51,10 +50,7 @@ export default function EmployeesTable({ empleados, onDelete, onUpdate }: Props)
               <td>{e.area}</td>
               <td>{e.activo ? "✅" : "❌"}</td>
               <td className="flex gap-2">
-                <button
-                  onClick={() => setSelected(e)}
-                  className="btn btn-warning"
-                >
+                <button onClick={() => openEdit(e)} className="btn btn-warning">
                   Editar
                 </button>
                 <button
@@ -66,45 +62,67 @@ export default function EmployeesTable({ empleados, onDelete, onUpdate }: Props)
               </td>
             </tr>
           ))}
+          {empleados.length === 0 && (
+            <tr>
+              <td colSpan={7} className="text-center py-6 opacity-70">
+                Sin empleados
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
 
       {/* Modal de edición */}
       {selected && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelected(null); // cerrar fuera
+          }}
+        >
           <div className="bg-neutral-900 p-6 rounded-xl shadow-lg w-full max-w-md space-y-3">
             <h3 className="text-lg font-semibold">Editar empleado</h3>
 
             <input
               className="input"
-              value={selected.nombre_completo}
-              onChange={(e) => setSelected({ ...selected, nombre_completo: e.target.value })}
+              placeholder="Nombre completo"
+              value={selected.nombre_completo ?? ""} // nunca null
+              onChange={(e) =>
+                setSelected({ ...selected, nombre_completo: e.target.value })
+              }
             />
             <input
               className="input"
-              value={selected.alias}
+              placeholder="Alias"
+              value={selected.alias ?? ""}
               onChange={(e) => setSelected({ ...selected, alias: e.target.value })}
             />
             <input
               className="input"
               type="email"
-              value={selected.email}
+              placeholder="Email"
+              value={selected.email ?? ""}
               onChange={(e) => setSelected({ ...selected, email: e.target.value })}
             />
             <input
               className="input"
-              value={selected.telefono}
-              onChange={(e) => setSelected({ ...selected, telefono: e.target.value })}
+              placeholder="Teléfono"
+              value={selected.telefono ?? ""}
+              onChange={(e) =>
+                setSelected({ ...selected, telefono: e.target.value })
+              }
             />
             <input
               className="input"
-              value={selected.area}
+              placeholder="Área"
+              value={selected.area ?? ""}
               onChange={(e) => setSelected({ ...selected, area: e.target.value })}
             />
+
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={selected.activo}
+                checked={!!selected.activo}
                 onChange={(e) => setSelected({ ...selected, activo: e.target.checked })}
               />
               Activo
@@ -114,10 +132,7 @@ export default function EmployeesTable({ empleados, onDelete, onUpdate }: Props)
               <button onClick={handleSave} className="btn btn-success">
                 Guardar
               </button>
-              <button
-                onClick={() => setSelected(null)}
-                className="btn btn-secondary"
-              >
+              <button onClick={() => setSelected(null)} className="btn btn-secondary">
                 Cancelar
               </button>
             </div>
