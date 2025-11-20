@@ -32,20 +32,8 @@ export default function ProductosPage() {
     })();
   }, []);
 
-  async function handleDelete(id: string) {
-    const res = await fetch("/api/items/delete", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ id }),
-    });
-    const json = await res.json();
-    if (!res.ok) return alert(json.error || "Error eliminando");
-    await refresh();
-  }
-
   function handleEdit(row: ItemRow) {
-    setEditing(row); // esto hará que el formulario se abra gracias a forceOpen
+    setEditing(row);
   }
 
   async function afterCreate() {
@@ -82,7 +70,7 @@ export default function ProductosPage() {
         <ItemsTable
           items={items}
           onEdit={handleEdit}
-          onDelete={handleDelete}
+          // ❌ onDelete: eliminado por requisito del profesor
         />
       </div>
     </div>
