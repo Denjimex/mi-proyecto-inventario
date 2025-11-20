@@ -672,7 +672,7 @@ function EditableRow({
           <option value="regular">regular</option>
           <option value="malo">malo</option>
           <option value="inutilizable">inutilizable</option>
-          <option value="baja">baja (soft delete)</option>
+          <option value="baja">baja</option>
         </select>
       </td>
 
